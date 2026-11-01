@@ -1,0 +1,709 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>MagiCard Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: a phone-sized stage on a dark desk. One screen at a time, tap-through. A side guide on wide screens lists the main task and jumps to any screen. */
+:root{
+  color-scheme: dark;
+  --night:#14102B; --desk:#0C0A1A; --panel:#211A47; --panel-hi:#2D2460; --line:#4A3C8F;
+  --text:#F4F0FF; --muted:#B9B1E3; --gold:#FFC83D; --gold-ink:#2A1A00; --gold-edge:#B88A12;
+  --mint:#4EE3A4; --coral:#FF6B6B; --sky:#6FB7FF;
+  --g-common:#B8BDC9; --g-uncommon:#5CD68A; --g-rare:#5AA9FF; --g-epic:#B07CFF; --g-legend:#FFC83D; --g-myth:#FF6BA8;
+  --font-display:'Press Start 2P', ui-monospace, monospace;
+  --font-body:'Nunito', ui-rounded, system-ui, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--desk);color:var(--text);font:500 15px/1.35 var(--font-body);
+  padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0;text-align:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid var(--sky);outline-offset:2px;border-radius:10px}
+svg{display:block}
+.desk{height:100%;display:flex;align-items:center;justify-content:center;gap:48px;min-width:0}
+
+/* Side guide (wide screens only) */
+.guide{display:none;width:300px;flex:none;color:var(--muted);font-size:14px}
+@media (min-width:920px){.guide{display:block}}
+.guide .eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--gold);margin:0 0 6px}
+.guide h1{font:400 20px/1.3 var(--font-display);color:var(--text);margin:0 0 10px;text-wrap:balance}
+.guide h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--text);margin:22px 0 8px}
+.guide p{margin:0 0 8px}
+.guide ol{margin:0;padding-left:20px;display:grid;gap:4px}
+.guide .jump{display:flex;flex-wrap:wrap;gap:6px}
+.guide .jump a{padding:6px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:700;font-size:13px}
+.guide .jump a[aria-current="true"]{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+.guide .restart{margin-top:16px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--text);font-weight:700}
+
+/* Phone */
+.stage{position:relative;flex:none;width:390px;height:844px}
+.phone{position:absolute;left:0;top:0;width:390px;height:844px;transform-origin:0 0;border-radius:40px;border:8px solid #04030B;
+  background:var(--night);box-shadow:0 0 0 2px #2B2459,0 24px 60px rgba(0,0,0,.55);overflow:hidden}
+@media (max-width:699px){
+  .stage{width:100%;height:100%}
+  .phone{width:100%;height:100%;border-width:0;border-radius:22px;transform:none!important}
+}
+#screen{position:absolute;inset:0;display:flex;flex-direction:column;min-height:0}
+.scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 12px 12px}
+
+/* Shared parts */
+.top{display:flex;align-items:center;gap:8px;padding:10px 12px 6px;min-height:58px;flex:none}
+.top h2{flex:1;margin:0;font:400 13px/1.4 var(--font-display);text-align:center;color:var(--text);text-wrap:balance}
+.top .sub{display:block;font:700 12px var(--font-body);color:var(--muted);margin-top:2px}
+.ibtn{width:44px;height:44px;flex:none;border-radius:12px;background:var(--panel);border:2px solid var(--line);display:grid;place-items:center;color:var(--text)}
+.ibtn svg{width:22px;height:22px}
+.pill{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:12px;background:var(--panel);border:2px solid var(--line);font-weight:800;font-variant-numeric:tabular-nums}
+.pill.warn{border-color:var(--coral);color:var(--coral)}
+.btn{min-height:52px;padding:0 16px;border-radius:14px;font-weight:800;font-size:16px;text-align:center;background:var(--panel-hi);border:2px solid var(--line);display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--gold);color:var(--gold-ink);border-color:#FFE08A;box-shadow:0 4px 0 var(--gold-edge)}
+.btn.danger{background:var(--coral);color:#2A0A0A;border-color:#FFB3B3}
+.btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none}
+.btn.block{width:100%}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1.5px solid var(--line);background:var(--panel)}
+.chip.good{border-color:var(--mint);color:var(--mint)} .chip.bad{border-color:var(--coral);color:var(--coral)} .chip.gold{border-color:var(--gold);color:var(--gold)}
+.hp{height:12px;border-radius:7px;background:#0B0820;border:2px solid var(--line);overflow:hidden}
+.hp i{display:block;height:100%;background:var(--mint);transition:width .9s ease}
+.hp.foe i{background:var(--coral)}
+.hp.elo i{background:var(--gold)}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* Cards */
+.card{--gc:var(--g-common);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:100%;aspect-ratio:3/4;padding:3px 2px;
+  border-radius:.8em;border:2px solid var(--gc);background:linear-gradient(180deg,#34297A,#1B1540);color:var(--text);font-size:10px;overflow:hidden;text-align:center}
+.card.big{font-size:15px;border-width:3px}
+.g-common{--gc:var(--g-common)} .g-uncommon{--gc:var(--g-uncommon)} .g-rare{--gc:var(--g-rare)} .g-epic{--gc:var(--g-epic)} .g-legend{--gc:var(--g-legend)} .g-myth{--gc:var(--g-myth)}
+.card .art{position:absolute;left:50%;top:15%;width:58%;aspect-ratio:1;transform:translateX(-50%);color:var(--gc)}
+.card .art svg{width:100%;height:100%}
+.card .nm{font-weight:800;line-height:1.05;font-size:1em;min-height:2.1em;display:flex;align-items:center;justify-content:center}
+.card .gr{position:absolute;top:2px;left:4px;font-weight:800;font-size:.95em;color:var(--gc)}
+.card .dm{position:absolute;top:2px;right:4px;font-weight:800;font-size:1.1em}
+.card .set{position:absolute;top:2px;left:50%;transform:translateX(-50%);font-size:.75em;font-weight:800;background:var(--gold);color:var(--gold-ink);padding:0 4px;border-radius:3px}
+.card.back{--gc:var(--line);background:repeating-linear-gradient(45deg,#3A2E86 0 5px,#2A2162 5px 10px);justify-content:center}
+.card.back .nm{font-size:.95em;min-height:0;text-shadow:0 1px 0 #14102B}
+.card.back .deckn{font:400 14px var(--font-display);margin-bottom:2px}
+.row5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.rowlabel{display:flex;justify-content:space-between;align-items:center;min-height:20px;padding:0 2px 3px}
+.slot{aspect-ratio:3/4;border-radius:9px;border:2px dashed var(--line);background:rgba(255,255,255,.03);display:grid;place-items:center;color:var(--muted);font-weight:800;font-size:13px;overflow:hidden;position:relative}
+.slot.filled{border:0;background:none;display:block}
+.slot.ok{border:2px solid var(--mint);background:rgba(78,227,164,.14);animation:pulse 1.2s ease-in-out infinite}
+.slot.sel .card{outline:3px solid var(--gold);outline-offset:1px}
+@keyframes pulse{50%{background:rgba(78,227,164,.3)}}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.hand{display:flex;gap:6px;min-height:88px}
+.hand>*{flex:1 1 0;min-width:0;max-width:calc((100% - 24px)/5)}
+.hand .hc{display:block;border-radius:.8em}
+.hand .hc.sel .card{outline:3px solid var(--gold);outline-offset:1px;transform:translateY(-6px)}
+.empty-hand{flex:1 1 auto!important;max-width:none!important;display:grid;place-items:center;color:var(--muted);border:2px dashed var(--line);border-radius:9px;font-size:13px}
+
+/* Battle */
+.opp{display:grid;grid-template-columns:128px 1fr;gap:10px;align-items:center;padding:6px 0 8px}
+.opp .who{display:flex;gap:8px;align-items:center}
+.opp .who b{display:block;font-size:14px}
+.opp .who small{display:block;font-size:11px;color:var(--muted);margin-top:3px;font-weight:700}
+.mini5{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:4px}
+.mini{height:34px;border-radius:5px;border:1.5px dashed var(--line);display:grid;place-items:center}
+.mini.back{border:1.5px solid var(--line);background:repeating-linear-gradient(45deg,#3A2E86 0 4px,#2A2162 4px 8px)}
+.mini.up{border:1.5px solid var(--gc);color:var(--gc);background:#1B1540}
+.mini.up svg{width:20px;height:20px}
+.mini.hit{box-shadow:0 0 0 3px var(--coral)}
+.shared{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;align-items:center}
+.fz{display:grid;place-items:center;height:88px;width:100%}
+.fz-c{width:100%;aspect-ratio:4/3;border-radius:7px;border:2px solid var(--g-epic);background:linear-gradient(180deg,#34297A,#1B1540);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9px;font-weight:800;line-height:1.05;text-align:center}
+.fz-c svg{width:20px;height:20px;color:var(--g-epic)}
+.deck.can .card{border-color:var(--gold);animation:pulse2 1.2s ease-in-out infinite}
+@keyframes pulse2{50%{box-shadow:0 0 0 3px rgba(255,200,61,.45)}}
+.me{display:flex;align-items:center;gap:8px;padding:8px 0 4px;min-height:42px}
+.me .hp{flex:1}
+.me b{font-size:13px;white-space:nowrap}
+.me .num{font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+.status{display:flex;flex-wrap:wrap;gap:6px;min-height:0}
+.dock{flex:none;border-top:2px solid var(--line);background:var(--panel);padding:8px 12px 12px;display:grid;gap:8px}
+.info{min-height:52px;display:flex;align-items:center;gap:10px;font-size:13px;line-height:1.3}
+.info b{color:var(--text)}
+.info .txt{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted)}
+.info .txt b{color:var(--text)}
+.info .btn{min-height:44px;font-size:14px;padding:0 12px}
+.btnrow{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px}
+.btnrow .btn{padding:0 8px;font-size:15px}
+
+/* Sheets */
+.scrim{position:absolute;inset:0;background:rgba(8,6,20,.66);display:flex;align-items:flex-end;z-index:5}
+.sheet{width:100%;max-height:86%;overflow-y:auto;background:var(--panel);border-top:2px solid var(--line);border-radius:22px 22px 0 0;padding:18px 16px 20px;display:grid;gap:12px}
+.sheet h3{margin:0;font:400 14px/1.5 var(--font-display);text-wrap:balance}
+.sheet p{margin:0;color:var(--muted)}
+.sheet .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.strikecards{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.strikecards .cw{width:66px}
+.plus{font:800 20px var(--font-body);color:var(--muted)}
+.total{font-weight:800;font-size:18px}
+.reply{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 12px;border-radius:12px;background:#17123A;border:2px solid var(--line)}
+.recipe{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ing{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:2px solid var(--line);font-weight:800;font-size:14px;background:#17123A}
+.ing.have{border-color:var(--mint);color:var(--mint)} .ing.miss{border-color:var(--coral);color:var(--coral)}
+
+/* Menu */
+.hero{padding:18px 4px 8px;text-align:center}
+.logo{font:400 26px/1.2 var(--font-display);color:var(--gold);text-shadow:0 3px 0 #7A4F00;margin:0}
+.tag{margin:8px 0 0;color:var(--muted);font-weight:700}
+.profile{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;margin:14px 0;padding:12px;border-radius:16px;background:var(--panel);border:2px solid var(--line)}
+.profile b{font-size:17px}
+.profile .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:3px 0 6px}
+.profile small{display:block;color:var(--muted);font-weight:700;margin-top:4px;font-size:12px}
+.coins{font-weight:800;color:var(--gold);display:flex;align-items:center;gap:6px;font-size:15px}
+.coins svg{width:18px;height:18px}
+.bigplay{width:100%;min-height:68px;font-size:22px;margin-bottom:14px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{min-height:76px;padding:10px 12px;border-radius:14px;background:var(--panel);border:2px solid var(--line);display:flex;align-items:center;gap:12px;font-weight:800;font-size:15px}
+.tile svg{width:30px;height:30px;color:var(--sky);flex:none}
+.tile.on{border-color:var(--sky)}
+
+/* Mode */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;background:#17123A;border-radius:14px;border:2px solid var(--line);margin:6px 0 14px}
+.seg button{min-height:48px;border-radius:10px;font-weight:800;font-size:17px;text-align:center}
+.seg button[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink)}
+.opt{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;width:100%;padding:14px;margin-bottom:10px;border-radius:16px;background:var(--panel);border:2px solid var(--line);min-height:84px}
+.opt svg{width:36px;height:36px;color:var(--gold)}
+.opt b{display:block;font-size:18px}
+.opt span.d{display:block;color:var(--muted);font-size:14px;margin-top:2px}
+
+/* Trial */
+.trial{display:flex;flex-direction:column;flex:1;min-height:0;padding:10px 12px 12px;gap:8px}
+.wiz{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}
+.bubble{background:var(--panel-hi);border:2px solid var(--line);border-radius:14px;padding:10px 12px;font-weight:700;font-size:14px;line-height:1.3}
+.eqbox{background:#17123A;border:2px solid var(--line);border-radius:16px;padding:16px 12px;text-align:center;display:grid;gap:6px}
+.atk{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.eq{font-weight:800;font-size:36px;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mod{display:inline-block;padding:0 8px;border-radius:10px;border:2px solid var(--gold);color:var(--gold);font-size:26px}
+.legend{font-size:13px;color:var(--muted)}
+.timer{display:flex;align-items:center;gap:10px}
+.timer .hp{flex:1}
+.timer b{min-width:44px;text-align:right;font-variant-numeric:tabular-nums;font-size:16px}
+.ans{min-height:64px;border-radius:14px;border:3px solid var(--gold);background:#0F0B27;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.ans.ph{color:#6F66A8;font-size:18px;font-weight:700}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:auto}
+.key{min-height:64px;border-radius:14px;background:var(--panel-hi);border:2px solid var(--line);font-size:26px;font-weight:800;text-align:center;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.key:active{background:var(--line)}
+.key.fn{color:var(--muted);font-size:22px}
+
+/* Result */
+.res{display:flex;flex-direction:column;gap:12px;padding:6px 12px 14px;flex:1;min-height:0;overflow-y:auto}
+.hl{font:400 22px/1.3 var(--font-display);margin:2px 0 0;text-align:center}
+.hl.good{color:var(--mint)} .hl.bad{color:var(--coral)}
+.box{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:12px 14px;display:grid;gap:8px}
+.box.reward{border-color:var(--gold)} .box.penalty{border-color:var(--coral)}
+.box h4{margin:0;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.box.reward h4{color:var(--gold)} .box.penalty h4{color:var(--coral)}
+.box p{margin:0;font-size:15px}
+.steps{margin:0;padding-left:22px;display:grid;gap:6px;font-size:15px}
+.hpline{display:flex;justify-content:space-between;font-weight:800;font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:#17123A;border-radius:12px;padding:10px 6px;text-align:center}
+.stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted);font-weight:700}
+.foot{flex:none;padding:10px 12px 14px;display:grid;gap:8px;border-top:2px solid var(--line);background:var(--panel)}
+
+/* Magipedia */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 10px}
+.tabs button{min-height:44px;border-radius:12px;background:var(--panel);border:2px solid var(--line);font-weight:800;text-align:center}
+.tabs button[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:6px}
+.chips button{flex:none;min-height:40px;padding:0 12px;border-radius:999px;border:2px solid var(--line);background:var(--panel);font-weight:800;font-size:14px;display:flex;align-items:center;gap:6px}
+.chips button i{width:10px;height:10px;border-radius:50%;background:var(--gc);display:block}
+.chips button[aria-pressed="true"]{background:var(--panel-hi);border-color:var(--gc);box-shadow:inset 0 -3px 0 var(--gc)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.grid3 .cell{display:block;font-size:14px}
+.grid3 .card{font-size:12px}
+.frow{display:grid;gap:8px;padding:12px;border-radius:14px;background:var(--panel);border:2px solid var(--line);margin-bottom:10px}
+.frow b{font-size:16px}
+.frow p{margin:0;color:var(--muted);font-size:13px}
+.detail{display:grid;grid-template-columns:128px 1fr;gap:14px;align-items:start}
+.detail .t{font-size:13px;color:var(--muted);font-weight:700}
+.detail p{color:var(--text);font-size:16px;line-height:1.4}
+
+/* Toast */
+#toast{position:absolute;left:14px;right:14px;bottom:150px;z-index:9;padding:10px 14px;border-radius:12px;background:var(--text);color:#14102B;font-weight:800;font-size:14px;text-align:center;opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .2s,transform .2s}
+#toast.show{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="desk">
+  <aside class="guide" id="guide" aria-label="Prototype guide">
+    <p class="eyebrow">Midterm prototype</p>
+    <h1>MagiCard</h1>
+    <p>Mobile battle companion for a Grade 5 learner. This prototype follows one attack round, from the main menu to the Wizard's Trial result.</p>
+    <h2>Try the main task</h2>
+    <ol>
+      <li>Tap Play, then Vs AI.</li>
+      <li>Tap Slash, then a Main Row slot. Do the same for Water Blast.</li>
+      <li>Tap Guard, then a Support Row slot.</li>
+      <li>Tap Strike and send the attack.</li>
+      <li>Solve the Wizard's Trial.</li>
+      <li>Tap Next turn and decide whether to use Guard.</li>
+    </ol>
+    <h2>Jump to a screen</h2>
+    <div class="jump" id="jump"></div>
+    <button class="restart" id="restart">Restart prototype</button>
+  </aside>
+  <div class="stage" id="stage">
+    <div class="phone" id="phone">
+      <div id="screen"></div>
+      <div id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Pixel art ---------- */
+var MAPS={
+blade:["......##",".....###","....###.","...###..","#.###...",".###....",".##.....","#..#...."],
+shield:[".######.","##oooo##","#oo##oo#","#oo##oo#","#oooooo#",".#oooo#.","..#oo#..","...##..."],
+wind:["..####..",".#....#.","......#.",".#####..","........","..#####.",".#....#.","..####.."],
+drop:["...##...","...##...","..####..","..#oo#..",".#ooo##.",".#oooo#.",".#oooo#.","..####.."],
+heart:[".##..##.","#oo##oo#","#oooooo#","#oooooo#",".#oooo#.","..#oo#..","...##...","........"],
+snare:["#.#.#.#.","########","#oooooo#",".#oooo#.","..#oo#..","...##...","........","........"],
+orb:["..####..",".#oooo#.","#ooo#oo#","#oooooo#","#oooooo#",".#oooo#.","..####..","........"],
+wall:["########","#oo#oo##","########","#o#oo#o#","########","#oo#oo##","########","........"],
+leaf:[".....###","...#####","..######",".#o#####",".o#####.","#o####..","#o##....","##......"],
+flame:["...#....","...##...","..###.#.",".####.#.",".#oo###.",".#ooo##.","..#oo#..","...##..."],
+gem:["..####..",".##oo##.","##oooo##",".######.","..#oo#..","...##...","........","........"],
+crown:["#..##..#","##.##.##","########","#oooooo#","########","........","........","........"],
+book:[".######.","#oo#ooo#","#oo#ooo#","#oo#ooo#","#oo#ooo#","#oo#ooo#",".######.","........"],
+trophy:["########","#oooooo#","#oooooo#",".#oooo#.","..#oo#..","...##...","..####..","........"],
+gear:["...##...",".######.",".##oo##.","##o..o##","##o..o##",".##oo##.",".######.","...##..."],
+star:["...##...","...##...","########",".######.","..####..",".######.",".##..##.",".#....#."]
+};
+function pix(name){
+  var m=MAPS[name],r='';
+  m.forEach(function(row,y){for(var x=0;x<8;x++){var ch=row[x];
+    if(ch==='#')r+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="currentColor"/>';
+    else if(ch==='o')r+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="currentColor" fill-opacity=".4"/>';}});
+  return '<svg viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">'+r+'</svg>';
+}
+var WIZ=[".......pp.......","......pPPp......",".....pPPPPp.....",".....pPYPPp.....","....pPPPPPPp....","...pPPPPPPPPp...","..pppppppppppp..","....SSSSSSSS....","....SESSSSES....","...WWSSSSSSWW...","...WWWWSSWWWW...","..bWWWWWWWWWWb..","..bBBWWWWWWBBb..",".SbBBBBBBBBBBbS.","..bBBBBBBBBBBb..","..bbbbbbbbbbbb.."];
+var PAL={
+  wizard:{p:'#8E6BFF',P:'#5A3FD0',Y:'#FFC83D',S:'#F2C9A0',E:'#14102B',W:'#F4F0FF',B:'#3F66E8',b:'#2A3FA8'},
+  me:{p:'#4EE3A4',P:'#1FA37A',Y:'#FFC83D',S:'#F2C9A0',E:'#14102B',W:'#E8FFF6',B:'#2B8CC9',b:'#1C5F90'},
+  foe:{p:'#FF8A7A',P:'#D14B4B',Y:'#FFC83D',S:'#E9B88F',E:'#14102B',W:'#D9D2F0',B:'#8B4BD0',b:'#5F2E9A'}
+};
+function sprite(who,px){
+  var pal=PAL[who],r='';
+  WIZ.forEach(function(row,y){for(var x=0;x<16;x++){var c=pal[row[x]];if(c)r+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="'+c+'"/>';}});
+  return '<svg viewBox="0 0 16 16" width="'+px+'" height="'+px+'" shape-rendering="crispEdges" aria-hidden="true">'+r+'</svg>';
+}
+
+/* ---------- Data (from the Capstone card list) ---------- */
+var GRADES=[['common','Common','C'],['uncommon','Uncommon','U'],['rare','Rare','R'],['epic','Epic','E'],['legend','Legend','L'],['myth','Mythical','M']];
+function gname(k){return GRADES.filter(function(g){return g[0]===k})[0][1]}
+function gl(k){return GRADES.filter(function(g){return g[0]===k})[0][2]}
+var CARDS={
+ brute:{n:'Brute Force',g:'common',kind:'attack',dmg:1,ico:'blade',type:'Main · Attack · Physical',d:'A very weak attack. Deals 1 damage.',src:'Shared deck (5)'},
+ slash:{n:'Slash',g:'common',kind:'attack',dmg:3,ico:'blade',type:'Main · Attack · Physical',d:'A focused melee attack. Deals 3 damage.',src:'Shared deck (5)'},
+ guard:{n:'Guard',g:'common',kind:'support',ico:'shield',type:'Support · Defense',d:'Take a shield stance. Blocks Brute Force, Slash and Wide Slash. Cuts the damage of stronger physical attacks in half.',src:'Shared deck (3)'},
+ dodge:{n:'Dodge',g:'common',kind:'support',ico:'wind',type:'Support · Defense',d:'A swift move. Blocks Poison Spit, Sleep Powder and Dust Storm.',src:'Shared deck (3)'},
+ poison:{n:'Poison Spit',g:'uncommon',kind:'attack',dmg:3,ico:'drop',type:'Main · Attack · Debuff · Magic',d:'A lethal spit. Deals 3 damage, then 2 damage every turn for 5 turns.',src:'Shared deck (3)'},
+ pray:{n:'Pray',g:'uncommon',kind:'support',ico:'heart',type:'Support · Defense',d:'Ask for a blessing. Heals 5 HP.',src:'Shared deck (2)'},
+ pitfall:{n:'Pitfall',g:'uncommon',kind:'support',ico:'snare',type:'Support · Trap',d:'A mischievous trick. Stops the enemy for 1 turn if they hit you with a physical attack.',src:'Shared deck (2)'},
+ water:{n:'Water Blast',g:'rare',kind:'attack',dmg:10,ico:'orb',type:'Main · Attack · Magic',d:'The basic magic attack. Deals 10 damage.',src:'Shared deck (2)'},
+ stonewall:{n:'Stone Wall',g:'rare',kind:'support',ico:'wall',type:'Support · Technique',d:'For 5 turns, your Dodge can even avoid Epic magic attacks.',src:'Shared deck (2)'},
+ thorn:{n:'Thorn Bush',g:'rare',kind:'utility',ico:'leaf',type:'Utility',d:'A pretty rose bush. It probably does nothing. Used in some fusions.',src:'Shared deck (2)'},
+ fireball:{n:'Fireball',g:'epic',kind:'attack',dmg:7,ico:'flame',type:'Main · Attack · Debuff',d:'An explosive spell. Deals 7 damage and burns the enemy for 5 damage a turn, 3 turns.',src:'Shared deck (1)'},
+ catalyst:{n:'Catalyst',g:'epic',kind:'utility',ico:'gem',type:'Utility',d:'A mysterious element that bends the rules. Used to fuse cards together.',src:'Shared deck (3)'},
+ dragon:{n:'Dragon',g:'legend',kind:'special',ico:'crown',type:'Both · Special',d:'Main slot: deals 25 damage. Support slot: deals 5 damage to the enemy every turn.',src:'Shared deck (1)'},
+ arthur:{n:'Monarch of Avalon: Arthur Pendragon',g:'myth',kind:'support',ico:'crown',type:'Support · Ultimate',d:'The ultimate magic. Choose 3 Knight’s Arms to power up. Made by a Ritual.',src:'Ritual'}
+};
+var FUSION=[
+ {s:'High Guard',n:'High Guard',g:'common',need:['guard','guard'],d:'Blocks all physical damage.'},
+ {s:'Evasion',n:'Absolute Evasion',g:'common',need:['dodge','dodge'],d:'Blocks all magical damage.'},
+ {s:'Holy Water',n:'Holy Water',g:'uncommon',need:['antidote','pray'],d:'Heals 15 HP and removes all debuffs.'},
+ {s:'Quicksand',n:'Quicksand',g:'uncommon',need:['dust','pitfall'],d:'A trap. Freezes the enemy in place for 2 turns after 3 physical attacks.'}
+];
+var NEEDNAME={guard:'Guard',dodge:'Dodge',antidote:'Antidote',pray:'Pray',dust:'Dust Storm',pitfall:'Pitfall'};
+var DRAWORDER=['dodge','brute','pray','slash'];
+var ROUTES=['menu','mode','battle','strike','trial','result','defend','summary','magipedia'];
+var NAMES={menu:'Main menu',mode:'Choose mode',battle:'Battle board',strike:'Strike Time',trial:'Wizard’s Trial',result:'Trial result',defend:'Defend prompt',summary:'Match summary',magipedia:'Magipedia'};
+
+/* ---------- State ---------- */
+var S=fresh();S.mp={tab:'cards',grade:'common'};S.elo=150;S.size='1v1';S.mode='ai';
+function fresh(){return{
+  period:2,phase:'prep',sheet:null,reveal:false,searching:false,
+  hp:{me:94,opp:100},
+  hand:['slash','water','guard','pray','brute'],
+  main:[null,null,null,null,null],support:[null,null,null,null,null],
+  oppMain:[null,'slash',null,null,null],oppSupport:[null,'x',null,'x',null],
+  sel:null,drawsLeft:1,deckN:24,discard:3,deckIdx:0,prep:60,
+  trial:null,res:null,reward:null,penalty:null,debuff:null,banner:null,
+  played:false,stats:{n:0,ok:0,times:[]},firstTrial:true,fz:null,mcard:null,eloDelta:0,timeNoted:false
+};}
+function startMatch(){
+  var keep={mp:S.mp,elo:S.elo,size:S.size,mode:S.mode};
+  S=fresh();S.mp=keep.mp;S.elo=keep.elo;S.size=keep.size;S.mode=keep.mode;
+  go('battle');
+}
+function prefill(){
+  if(S.played||S.main.some(Boolean))return;
+  S.main[0]='slash';S.main[1]='water';S.support[0]='guard';S.hand=['pray','brute'];
+}
+
+/* ---------- Helpers ---------- */
+var $=function(s){return document.querySelector(s)};
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var icons={
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  menu:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2.4"/><circle cx="12" cy="12" r="2.4"/><circle cx="12" cy="19" r="2.4"/></svg>',
+  help:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.6 2.6 0 115 .6c0 1.8-2.5 2-2.5 3.8M12 17.5v.1"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>'
+};
+function cardHTML(id,o){o=o||{};var c=CARDS[id];
+  return '<div class="card g-'+c.g+(o.big?' big':'')+'"><span class="gr">'+gl(c.g)+'</span>'+(c.kind==='attack'?'<span class="dm">'+c.dmg+'</span>':'')+(o.set?'<span class="set">SET</span>':'')+'<span class="art">'+pix(c.ico)+'</span><span class="nm">'+esc(c.n)+'</span></div>';}
+function selId(){if(!S.sel)return null;return S.sel.from==='hand'?S.hand[S.sel.i]:S[S.sel.from][S.sel.i];}
+var tt,trialIv,prepIv,toastAt=0,lastRoute='';
+function toast(m){var el=$('#toast');toastAt=Date.now();el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){el.classList.remove('show')},2300);}
+function route(){var r=(location.hash||'#menu').slice(1);return ROUTES.indexOf(r)>-1?r:'menu';}
+function go(n){if(location.hash==='#'+n)render();else location.hash=n;}
+function fmtTime(s){var m=Math.floor(s/60),x=s%60;return m+':'+(x<10?'0':'')+x;}
+function rank(e){var names=['Bronze','Silver','Gold','Platinum','Mythril'],i=Math.min(4,Math.floor(Math.max(0,e-1)/1000)),t=Math.min(5,Math.floor((Math.max(0,e-1)%1000)/200)+1);return {name:names[i]+' '+['I','II','III','IV','V'][t-1],next:Math.ceil(e/200)*200+1};}
+function topbar(left,title,sub,right){return '<div class="top">'+left+'<h2>'+title+(sub?'<span class="sub">'+sub+'</span>':'')+'</h2>'+right+'</div>';}
+function backBtn(a,label){return '<button class="ibtn" data-a="'+a+'" aria-label="'+label+'">'+icons.back+'</button>';}
+function spacer(){return '<span style="width:44px;flex:none"></span>';}
+
+/* ---------- Screens ---------- */
+function menuHTML(){
+  var rk=rank(S.elo),toNext=rk.next-S.elo,pct=Math.round(((S.elo-1)%200)/200*100);
+  function tile(ico,label,a,extra){return '<button class="tile" data-a="'+a+'" '+(extra||'')+'>'+pix(ico)+'<span>'+label+'</span></button>';}
+  return '<div class="scroll">'+
+   '<div class="hero"><h1 class="logo">MagiCard</h1><p class="tag">Battle with cards. Win with math.</p></div>'+
+   '<div class="profile">'+sprite('me',52)+'<div><b>NovaFox</b><div class="meta"><span class="chip gold">'+rk.name+'</span><span class="label">ELO '+S.elo+'</span></div>'+
+   '<div class="hp elo" role="progressbar" aria-valuemin="0" aria-valuemax="200" aria-valuenow="'+pct*2+'" aria-label="Progress to next rank"><i style="width:'+pct+'%"></i></div><small>'+toNext+' ELO to the next rank</small></div>'+
+   '<div class="coins">'+pix('gem')+'240</div></div>'+
+   '<button class="btn primary bigplay" data-a="nav" data-to="mode">Play</button>'+
+   '<div class="tiles">'+
+    tile('star','How to Play','soon','data-n="How to Play"')+
+    tile('gem','Store','soon','data-n="Store"')+
+    tile('crown','Cosmetics','soon','data-n="Cosmetics"')+
+    tile('trophy','Rankings','soon','data-n="Rankings"')+
+    tile('book','Magipedia','nav','data-to="magipedia"')+
+    tile('gear','Settings','soon','data-n="Settings"')+
+   '</div></div>';
+}
+function modeHTML(){
+  function opt(m,ico,t,d){return '<button class="opt" data-a="start" data-m="'+m+'">'+pix(ico)+'<span><b>'+t+'</b><span class="d">'+d+'</span></span></button>';}
+  var s=S.size==='1v1';
+  return topbar(backBtn('nav" data-to="menu','Back to main menu'),'Choose your battle','',spacer())+
+   '<div class="scroll"><div class="seg" role="group" aria-label="Team size">'+
+   '<button data-a="size" data-v="1v1" aria-pressed="'+s+'">1 vs 1</button><button data-a="size" data-v="2v2" aria-pressed="'+!s+'">2 vs 2</button></div>'+
+   opt('ai','gear','Vs AI','Practice with Wizard Bot. Your ELO does not change.')+
+   opt('match','orb','Matchmaking','Casual match against another player.')+
+   opt('ranked','trophy','Ranked','Win to climb. Losing costs ELO.')+
+   '<p class="label" style="text-align:center;margin-top:6px">'+(s?'One opponent, one shared deck':'You and a teammate vs two opponents')+'</p></div>'+
+   (S.searching?'<div class="scrim"><div class="sheet" style="text-align:center;justify-items:center"><h3>Finding an opponent</h3>'+sprite('foe',72)+'<p>Looking for a player near your rank…</p></div></div>':'');
+}
+function slotHTML(row,i){
+  var id=S[row][i],sel=S.sel&&S.sel.from===row&&S.sel.i===i;
+  var want=(S.sel&&S.sel.from==='hand')?CARDS[S.hand[S.sel.i]].kind:null;
+  var valid=want&&!id&&((row==='main'&&want==='attack')||(row==='support'&&want==='support'));
+  var cls='slot'+(id?' filled':'')+(valid?' ok':'')+(sel?' sel':'');
+  var label=(row==='main'?'Main':'Support')+' row slot '+(i+1)+', '+(id?CARDS[id].n:'empty');
+  return '<button class="'+cls+'" data-a="slot" data-row="'+row+'" data-i="'+i+'" aria-label="'+label+'">'+(id?cardHTML(id,{set:row==='support'}):'<span>'+(i+1)+'</span>')+'</button>';
+}
+function miniHTML(row){
+  return '<div class="mini5">'+S[row].map(function(id,i){
+    if(!id)return '<div class="mini"></div>';
+    if(id==='x')return '<div class="mini back" aria-label="Hidden card"></div>';
+    var c=CARDS[id];return '<div class="mini up g-'+c.g+(S.phase==='opp-strike'&&row==='oppMain'?' hit':'')+'" aria-label="'+c.n+'">'+pix(c.ico)+'</div>';
+  }).join('')+'</div>';
+}
+function boardHTML(){
+  var id=selId(),c=id?CARDS[id]:null,total=S.main.filter(Boolean).reduce(function(a,k){return a+(CARDS[k].dmg||0)},0);
+  var canStrike=S.main.some(function(k){return k&&CARDS[k].kind==='attack'})&&S.phase==='prep';
+  var info;
+  if(c){
+    info='<div class="txt"><b>'+esc(c.n)+'</b> · '+gname(c.g)+' · '+c.type+'. '+esc(c.d)+'</div>'+(S.sel.from!=='hand'&&S.phase==='prep'?'<button class="btn" data-a="takeback">Take back</button>':'');
+  }else{
+    info='<div class="txt">Tap a card in your hand, then tap a glowing slot to place it.'+(total?' <b>Attack so far: '+total+' damage.</b>':'')+'</div>';
+  }
+  var hand=S.hand.length?S.hand.map(function(k,i){return '<button class="hc'+(S.sel&&S.sel.from==='hand'&&S.sel.i===i?' sel':'')+'" data-a="hand" data-i="'+i+'" aria-label="'+CARDS[k].n+' in your hand">'+cardHTML(k)+'</button>'}).join(''):'<div class="empty-hand">Your hand is empty</div>';
+  var fz=FUSION.map(function(f,i){return '<button class="fz" data-a="fusion" data-i="'+i+'" aria-label="Fusion card: '+f.n+'. Tap to see the recipe."><div class="fz-c">'+pix('gem')+f.s+'</div></button>'});
+  var deck='<button class="deck'+(S.drawsLeft>0&&S.phase==='prep'?' can':'')+'" data-a="draw" aria-label="Shared deck, '+S.deckN+' cards. Tap to draw."><div class="card back"><span class="deckn">'+S.deckN+'</span><span class="nm">Shared deck</span></div></button>';
+  var chips='';
+  if(S.banner)chips+='<span class="chip '+S.banner.k+'">'+S.banner.t+'</span>';
+  if(S.debuff)chips+='<span class="chip bad">'+S.debuff+'</span>';
+  var title='Period '+S.period,sub=S.phase==='prep'?'Your preparation':'Wizard Bot attacks';
+  var modeTag={ai:'Practice',match:'Casual',ranked:'Ranked'}[S.mode];
+  return topbar('<button class="ibtn" data-a="menu" aria-label="Match menu">'+icons.menu+'</button>',title,sub+' · '+modeTag,
+      '<div class="pill'+(S.prep<=10?' warn':'')+'" aria-label="Turn timer">'+icons.clock+'<span id="prepTimer">'+fmtTime(S.prep)+'</span></div>')+
+   '<div class="scroll">'+
+    '<div class="opp"><div class="who">'+sprite('foe',44)+'<div><b>Wizard Bot</b><div class="hp foe" style="width:76px"><i style="width:'+S.hp.opp+'%"></i></div><small>HP '+S.hp.opp+'/100</small></div></div>'+
+    '<div aria-label="Opponent rows">'+miniHTML('oppMain')+miniHTML('oppSupport')+'</div></div>'+
+    '<div class="shared">'+fz[0]+fz[1]+deck+fz[2]+fz[3]+'</div>'+
+    '<div class="me">'+sprite('me',32)+'<b>NovaFox</b><div class="hp" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+S.hp.me+'" aria-label="Your HP"><i style="width:'+S.hp.me+'%"></i></div><span class="num">'+S.hp.me+'/100</span></div>'+
+    (chips?'<div class="status" style="margin-bottom:6px">'+chips+'</div>':'')+
+    '<div class="rowlabel"><span class="label">Support row</span><span class="label">Discard '+S.discard+'</span></div><div class="row5" style="margin-bottom:8px">'+[0,1,2,3,4].map(function(i){return slotHTML('support',i)}).join('')+'</div>'+
+    '<div class="rowlabel"><span class="label">Main row</span><span class="label">Attack cards</span></div><div class="row5" style="margin-bottom:8px">'+[0,1,2,3,4].map(function(i){return slotHTML('main',i)}).join('')+'</div>'+
+    '<div class="rowlabel"><span class="label">Your hand</span><span class="label">'+S.hand.length+' cards</span></div><div class="hand">'+hand+'</div>'+
+   '</div>'+
+   '<div class="dock"><div class="info">'+info+'</div><div class="btnrow">'+
+    '<button class="btn" data-a="draw"'+(S.drawsLeft>0&&S.phase==='prep'?'':' disabled')+'>'+(S.drawsLeft>0?'Draw ('+S.drawsLeft+')':'Drawn')+'</button>'+
+    '<button class="btn" data-a="skip"'+(S.phase==='prep'?'':' disabled')+'>Skip strike</button>'+
+    '<button class="btn primary" data-a="strike"'+(canStrike?'':' disabled')+'>Strike!</button></div></div>'+
+   sheetHTML();
+}
+function sheetHTML(){
+  var sh=S.sheet;if(!sh)return '';
+  if(sh==='strike'){
+    var atk=S.main.filter(function(k){return k&&CARDS[k].kind==='attack'}),total=atk.reduce(function(a,k){return a+CARDS[k].dmg},0);
+    return '<div class="scrim"><div class="sheet"><h3>Strike Time</h3><p>You attack with these cards:</p>'+
+     '<div class="strikecards">'+atk.map(function(k){return '<div class="cw">'+cardHTML(k)+'</div>'}).join('<span class="plus">+</span>')+'<span class="plus">=</span><span class="total">'+total+' damage</span></div>'+
+     '<div class="reply" aria-live="polite">'+sprite('foe',32)+'<span>'+(S.reveal?'<b>Wizard Bot did not use a defense card.</b>':'Wizard Bot is deciding…')+'</span></div>'+
+     '<p>Next, the Wizard asks what Wizard Bot’s HP will be. Answer to unlock a reward.</p>'+
+     '<div class="two"><button class="btn" data-a="closesheet">Back to cards</button><button class="btn primary" data-a="confirmstrike"'+(S.reveal?'':' disabled')+'>Face the Wizard</button></div></div></div>';
+  }
+  if(sh==='defend'){
+    var hasG=S.support.indexOf('guard')>-1;
+    return '<div class="scrim"><div class="sheet"><h3>Wizard Bot attacks!</h3>'+
+     '<div class="strikecards"><div class="cw">'+cardHTML('slash')+'</div><span class="total">3 damage coming</span></div>'+
+     (hasG?'<p>Your <b style="color:var(--text)">Guard</b> is set. Use it to block Slash?</p><div class="two"><button class="btn" data-a="takehit">Take the hit</button><button class="btn primary" data-a="useguard">Use Guard</button></div>'
+          :'<p>You have no defense card set, so you will take the hit.</p><button class="btn primary block" data-a="takehit">Continue</button>')+
+     '</div></div>';
+  }
+  if(sh==='leave'){
+    return '<div class="scrim"><div class="sheet"><h3>Leave this match?</h3><p>'+(S.mode==='ranked'?'You will lose 5 ELO if you leave a ranked match.':'No ELO is lost in this match type.')+'</p><div class="two"><button class="btn primary" data-a="closesheet">Keep playing</button><button class="btn danger" data-a="confirmleave">Leave match</button></div></div></div>';
+  }
+  if(sh==='fusion'){
+    var f=FUSION[S.fz],have=S.hand.slice(),ok=true;
+    var ings=f.need.map(function(n){var i=have.indexOf(n);if(i>-1){have.splice(i,1);return '<span class="ing have">'+NEEDNAME[n]+' · in hand</span>'}ok=false;return '<span class="ing miss">'+NEEDNAME[n]+' · missing</span>'}).join('<span class="plus">+</span>');
+    return '<div class="scrim"><div class="sheet"><h3>'+f.n+'</h3><p>'+f.d+'</p><div class="label">Recipe</div><div class="recipe">'+ings+'</div>'+
+     '<div class="two"><button class="btn" data-a="closesheet">Close</button><button class="btn primary" data-a="collect"'+(ok?'':' disabled')+'>Collect</button></div></div></div>';
+  }
+  return '';
+}
+function makeTrial(){
+  prefill();
+  var dmg=S.main.filter(Boolean).reduce(function(a,k){return a+(CARDS[k].dmg||0)},0),hp0=S.hp.opp;
+  var m=S.firstTrial?4:(1+Math.floor(Math.random()*6))*(Math.random()<.5?1:-1);
+  var shown=dmg-m;if(shown<1){m=-m;shown=dmg-m;}
+  S.trial={dmg:dmg,hp0:hp0,shown:shown,m:m,answer:hp0-dmg,input:'',t0:0,limit:30,done:false,
+    cards:S.main.filter(function(k){return k&&CARDS[k].kind==='attack'})};
+  S.firstTrial=false;
+}
+function trialHTML(){
+  var t=S.trial;
+  var keys=['1','2','3','4','5','6','7','8','9'].map(function(k){return '<button class="key" data-a="digit" data-v="'+k+'" aria-label="'+k+'">'+k+'</button>'}).join('')+
+    '<button class="key fn" data-a="minus" aria-label="Minus sign">−</button><button class="key" data-a="digit" data-v="0" aria-label="0">0</button><button class="key fn" data-a="del" aria-label="Delete">⌫</button>';
+  return '<div class="trial">'+
+   '<div class="wiz">'+sprite('wizard',84)+'<div class="bubble">What will Wizard Bot’s HP be after your attack?</div></div>'+
+   '<div class="eqbox"><div class="atk">'+t.cards.map(function(k){return '<span class="chip g-'+CARDS[k].g+'" style="border-color:var(--gc)">'+CARDS[k].n+' '+CARDS[k].dmg+'</span>'}).join('')+'</div>'+
+    '<div class="eq" aria-label="Equation">'+t.hp0+' − '+t.shown+' <span class="mod">['+(t.m>0?'+':'−')+Math.abs(t.m)+']</span> = ?</div>'+
+    '<div class="legend">The gold number changes the number next to it. Add it in before you subtract.</div></div>'+
+   '<div class="timer"><span class="label">Time</span><div class="hp"><i id="tbar" style="width:100%;transition:none"></i></div><b id="tsec">30s</b></div>'+
+   '<div class="ans'+(t.input?'':' ph')+'" id="ans" aria-live="polite">'+(t.input||'Type your answer')+'</div>'+
+   '<div class="pad">'+keys+'</div>'+
+   '<button class="btn primary block" id="submit" data-a="submit"'+(/\d/.test(t.input)?'':' disabled')+'>Submit answer</button></div>';
+}
+function resultHTML(){
+  var t=S.trial,r=S.res,ok=r.ok;
+  var sum=t.cards.map(function(k){return CARDS[k].dmg}).join(' + ');
+  var head=ok?'<div class="hl good">CORRECT!</div><p style="text-align:center;margin:0">You answered <b>'+r.val+'</b> in '+r.secs.toFixed(1)+' seconds.</p>'
+             :'<div class="hl bad">NOT QUITE</div><p style="text-align:center;margin:0">'+(r.timeout?'Time ran out. ':'You answered <b>'+r.val+'</b>. ')+'The answer was <b>'+t.answer+'</b>.</p>';
+  var how=ok?'':'<div class="box"><h4>How to solve it</h4><ol class="steps"><li>Add the gold number: '+t.shown+' '+(t.m>0?'+':'−')+' '+Math.abs(t.m)+' = '+t.dmg+'.</li><li>Check with your cards: '+sum+' = '+t.dmg+'.</li><li>Subtract from HP: '+t.hp0+' − '+t.dmg+' = '+t.answer+'.</li></ol></div>';
+  var rew=ok?'<div class="box reward"><h4>Reward</h4><p><b>Extra card draw.</b> You can draw 2 cards on your next turn.</p></div>'
+            :'<div class="box penalty"><h4>Penalty</h4><p><b>Paralyzed.</b> You cannot draw cards for 2 turns. Your attack still landed.</p></div>';
+  return topbar(spacer(),'Wizard’s Trial','Round result',spacer())+
+   '<div class="res">'+head+
+    '<div class="box"><div class="hpline"><span>Wizard Bot HP</span><span>'+t.hp0+' → '+S.hp.opp+' (−'+t.dmg+')</span></div><div class="hp foe"><i id="rbar" style="width:'+t.hp0+'%"></i></div></div>'+
+    how+rew+'</div>'+
+   '<div class="foot"><button class="btn primary block" data-a="next">Next turn</button></div>';
+}
+function summaryHTML(){
+  var st=S.stats,acc=st.n?Math.round(st.ok/st.n*100)+'%':'–',avg=st.n?(st.times.reduce(function(a,b){return a+b},0)/st.n).toFixed(1)+'s':'–';
+  var rk=rank(S.elo),pct=Math.round(((S.elo-1)%200)/200*100);
+  return topbar(spacer(),'Match ended','You left early',spacer())+
+   '<div class="res"><div style="display:flex;justify-content:center">'+sprite('me',84)+'</div>'+
+   '<div class="box"><h4>Your Wizard’s Trials</h4><div class="stats"><div class="stat"><b>'+st.n+'</b><span>Answered</span></div><div class="stat"><b>'+acc+'</b><span>Correct</span></div><div class="stat"><b>'+avg+'</b><span>Avg. time</span></div></div>'+
+   (st.n?'':'<p style="color:var(--muted);font-size:14px">Play a full round to see your math results here.</p>')+'</div>'+
+   '<div class="box"><div class="hpline"><span>'+rk.name+'</span><span>ELO '+S.elo+(S.eloDelta?' ('+S.eloDelta+')':' (no change)')+'</span></div><div class="hp elo"><i style="width:'+pct+'%"></i></div>'+
+   '<p style="color:var(--muted);font-size:14px">'+(S.mode==='ai'?'Practice matches never change your ELO.':S.mode==='ranked'?'Leaving a ranked match costs 5 ELO.':'Casual matches do not change your ELO.')+'</p></div></div>'+
+   '<div class="foot"><button class="btn primary block" data-a="nav" data-to="mode">Play again</button><button class="btn block" data-a="nav" data-to="menu">Main menu</button></div>';
+}
+function mpHTML(){
+  var mp=S.mp,body;
+  var tabs='<div class="tabs" role="group" aria-label="Magipedia sections"><button data-a="tab" data-v="cards" aria-pressed="'+(mp.tab==='cards')+'">Cards</button><button data-a="tab" data-v="fusion" aria-pressed="'+(mp.tab==='fusion')+'">Fusion recipes</button></div>';
+  if(mp.tab==='cards'){
+    var chips='<div class="chips" role="group" aria-label="Card grade">'+GRADES.map(function(g){return '<button class="g-'+g[0]+'" data-a="grade" data-v="'+g[0]+'" aria-pressed="'+(mp.grade===g[0])+'"><i></i>'+g[1]+'</button>'}).join('')+'</div>';
+    var list=Object.keys(CARDS).filter(function(k){return CARDS[k].g===mp.grade});
+    body=chips+'<div class="grid3">'+list.map(function(k){return '<button class="cell" data-a="mcard" data-k="'+k+'" aria-label="'+CARDS[k].n+', '+gname(CARDS[k].g)+'">'+cardHTML(k)+'</button>'}).join('')+'</div>';
+  }else{
+    body=FUSION.map(function(f){return '<div class="frow"><b>'+f.n+'</b><div class="recipe">'+f.need.map(function(n){return '<span class="ing">'+NEEDNAME[n]+'</span>'}).join('<span class="plus">+</span>')+'</div><p>'+f.d+'</p></div>'}).join('')+
+      '<p class="label" style="text-align:center">Fusion cards appear in the side slots of the Shared Territory</p>';
+  }
+  var sheet='';
+  if(S.mcard){var c=CARDS[S.mcard];
+    sheet='<div class="scrim"><div class="sheet"><div class="detail"><div>'+cardHTML(S.mcard,{big:true})+'</div><div><h3>'+esc(c.n)+'</h3><div class="t" style="margin-top:6px"><span class="chip g-'+c.g+'" style="border-color:var(--gc);color:var(--gc)">'+gname(c.g)+'</span></div><div class="t" style="margin-top:8px">'+c.type+'</div></div></div><div class="detail" style="grid-template-columns:1fr"><p>'+esc(c.d)+'</p><div class="t">Found in: '+c.src+'</div></div><button class="btn block" data-a="closemc">Close</button></div></div>';}
+  return topbar(backBtn('nav" data-to="menu','Back to main menu'),'Magipedia','Cards and recipes',spacer())+'<div class="scroll">'+tabs+body+'</div>'+sheet;
+}
+
+/* ---------- Render ---------- */
+function render(){
+  clearInterval(trialIv);
+  var r=route(),scr=$('#screen');
+  if(r!==lastRoute&&Date.now()-toastAt>250)$('#toast').classList.remove('show');
+  lastRoute=r;
+  if(r==='strike'){prefill();S.phase='prep';if(S.sheet!=='strike'){S.sheet='strike';S.reveal=false;}}
+  if(r==='defend'){prefill();S.phase='opp-strike';S.sheet='defend';}
+  if(r==='trial'){prefill();if(!S.trial)makeTrial();}
+  if(r==='result'){prefill();if(!S.trial)makeTrial();if(!S.res){fakeSubmit();}}
+  if(r==='battle'&&S.sheet==='strike'&&!S.reveal)armReveal();
+  var html;
+  switch(r){
+    case 'menu':html=menuHTML();break;
+    case 'mode':html=modeHTML();break;
+    case 'battle':case 'strike':case 'defend':html=boardHTML();break;
+    case 'trial':html=trialHTML();break;
+    case 'result':html=resultHTML();break;
+    case 'summary':html=summaryHTML();break;
+    case 'magipedia':html=mpHTML();break;
+  }
+  scr.innerHTML=html;
+  if(r==='strike'&&!S.reveal)armReveal();
+  if(r==='trial'){
+    var t=S.trial;if(!t.t0)t.t0=performance.now();
+    trialIv=setInterval(tickTrial,200);tickTrial();
+  }
+  if(r==='result'){
+    var bar=$('#rbar');if(bar){requestAnimationFrame(function(){requestAnimationFrame(function(){bar.style.width=S.hp.opp+'%'})});}
+  }
+  document.querySelectorAll('#jump a').forEach(function(a){a.setAttribute('aria-current',a.getAttribute('href')==='#'+r?'true':'false')});
+}
+var revealT;
+function armReveal(){clearTimeout(revealT);revealT=setTimeout(function(){if(S.sheet==='strike'&&!S.reveal){S.reveal=true;render();}},900);}
+function tickTrial(){
+  var t=S.trial;if(!t||t.done)return;
+  var left=Math.max(0,t.limit-(performance.now()-t.t0)/1000);
+  var bar=$('#tbar'),sec=$('#tsec');
+  if(bar)bar.style.width=(left/t.limit*100)+'%';
+  if(sec){sec.textContent=Math.ceil(left)+'s';sec.style.color=left<8?'var(--coral)':'';}
+  if(left<=0)submit(true);
+}
+function applyOutcome(ok,val,timeout,secs){
+  var t=S.trial;t.done=true;
+  S.res={ok:ok,val:val,timeout:timeout,secs:secs};
+  S.stats.n++;if(ok)S.stats.ok++;S.stats.times.push(secs);
+  S.hp.opp=Math.max(0,t.hp0-t.dmg);
+  if(ok){S.reward='draw';S.penalty=null}else{S.penalty='paralyze';S.reward=null}
+}
+function submit(timeout){
+  var t=S.trial;if(!t||t.done)return;
+  var val=/\d/.test(t.input)?parseInt(t.input,10):null;
+  var ok=!timeout&&val===t.answer;
+  applyOutcome(ok,val,!!timeout,Math.min(t.limit,(performance.now()-t.t0)/1000));
+  go('result');
+}
+function fakeSubmit(){var t=S.trial;applyOutcome(true,t.answer,false,7.4);}
+function drawCard(){
+  if(S.phase!=='prep'||S.drawsLeft<1){if(S.debuff&&S.phase==='prep')toast('You are paralyzed and cannot draw.');else if(S.phase==='prep')toast('You already drew your card this turn.');return;}
+  if(S.hand.length>=7){toast('Your hand is full.');return;}
+  var k=DRAWORDER[S.deckIdx++%DRAWORDER.length];S.hand.push(k);S.drawsLeft--;S.deckN--;
+  toast('You drew '+CARDS[k].n+'.');render();
+}
+function endOppTurn(useGuard){
+  var msg;
+  if(useGuard){var gi=S.support.indexOf('guard');S.support[gi]=null;S.discard++;msg='Guard blocked Slash. You took 0 damage.';}
+  else{S.hp.me=Math.max(0,S.hp.me-3);msg='You took 3 damage.';}
+  S.oppMain[1]=null;S.phase='prep';S.sheet=null;S.period++;S.prep=60;S.sel=null;
+  S.debuff=S.penalty==='paralyze'?'Paralyzed · 2 turns':null;
+  S.drawsLeft=S.penalty==='paralyze'?0:(S.reward==='draw'?2:1);
+  S.banner=S.penalty==='paralyze'?{t:'You cannot draw this turn',k:'bad'}:(S.reward==='draw'?{t:'Reward: draw 2 cards',k:'good'}:null);
+  S.reward=null;S.penalty=null;
+  go('battle');toast(msg);
+}
+
+/* ---------- Events ---------- */
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-a]');if(!b)return;
+  var a=b.dataset.a,d=b.dataset;
+  if(['hand','slot','draw','strike','skip','next','confirmstrike','takeback','useguard','takehit'].indexOf(a)>-1)S.played=true;
+  switch(a){
+    case 'nav':S.sel=null;S.sheet=null;S.searching=false;go(d.to);break;
+    case 'soon':toast(d.n+' is not part of this prototype. It arrives in the final app.');break;
+    case 'size':S.size=d.v;render();break;
+    case 'start':
+      S.mode=d.m;
+      if(d.m==='ai'){startMatch();}
+      else{S.searching=true;render();setTimeout(function(){if(S.searching){S.searching=false;startMatch();}},1300);}
+      break;
+    case 'hand':{var i=+d.i;S.sel=(S.sel&&S.sel.from==='hand'&&S.sel.i===i)?null:{from:'hand',i:i};render();break;}
+    case 'slot':{
+      var row=d.row,si=+d.i,id=S[row][si];
+      if(S.phase!=='prep')break;
+      if(S.sel&&S.sel.from==='hand'){
+        var hid=S.hand[S.sel.i],k=CARDS[hid].kind;
+        if(k==='utility'){toast('Utility cards cannot be placed. They are used to fuse cards.');break;}
+        var okRow=(k==='attack')?'main':'support';
+        if(row!==okRow){toast(k==='attack'?'Attack cards go in the Main Row.':'Support cards go in the Support Row.');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');break;}
+        if(id){S.sel={from:row,i:si};render();break;}
+        S[row][si]=hid;S.hand.splice(S.sel.i,1);S.sel=null;render();break;
+      }
+      if(id){S.sel=(S.sel&&S.sel.from===row&&S.sel.i===si)?null:{from:row,i:si};render();}
+      break;}
+    case 'takeback':
+      if(S.sel&&S.sel.from!=='hand'){var f=S.sel.from,ix=S.sel.i;S.hand.push(S[f][ix]);S[f][ix]=null;S.sel=null;render();}
+      break;
+    case 'draw':drawCard();break;
+    case 'skip':S.sel=null;S.main=[null,null,null,null,null];S.phase='opp-strike';S.sheet='defend';go('defend');toast('Strike skipped.');break;
+    case 'strike':S.sel=null;S.sheet='strike';S.reveal=false;go('strike');break;
+    case 'closesheet':S.sheet=null;if(route()!=='battle')go('battle');else render();break;
+    case 'confirmstrike':S.sheet=null;makeTrial();go('trial');break;
+    case 'menu':S.sheet='leave';render();break;
+    case 'confirmleave':S.eloDelta=S.mode==='ranked'?-5:0;S.elo+=S.eloDelta;S.sheet=null;go('summary');break;
+    case 'fusion':S.fz=+d.i;S.sheet='fusion';render();break;
+    case 'collect':toast('Collecting fusion cards is part of the final app.');break;
+    case 'digit':{var t=S.trial;if(t&&!t.done&&t.input.replace('-','').length<4){t.input+=d.v;updAns();}break;}
+    case 'minus':{var t2=S.trial;if(t2&&!t2.done){t2.input=t2.input.charAt(0)==='-'?t2.input.slice(1):'-'+t2.input;updAns();}break;}
+    case 'del':{var t3=S.trial;if(t3&&!t3.done){t3.input=t3.input.slice(0,-1);updAns();}break;}
+    case 'submit':submit(false);break;
+    case 'next':S.main=[null,null,null,null,null];S.discard+=2;S.trial=null;S.res=null;S.phase='opp-strike';S.sheet='defend';go('defend');break;
+    case 'useguard':endOppTurn(true);break;
+    case 'takehit':endOppTurn(false);break;
+    case 'tab':S.mp.tab=d.v;render();break;
+    case 'grade':S.mp.grade=d.v;render();break;
+    case 'mcard':S.mcard=d.k;render();break;
+    case 'closemc':S.mcard=null;render();break;
+  }
+});
+function updAns(){
+  var t=S.trial,el=$('#ans'),sb=$('#submit');if(!el)return;
+  el.textContent=t.input||'Type your answer';el.classList.toggle('ph',!t.input);
+  if(sb)sb.disabled=!/\d/.test(t.input);
+}
+
+/* ---------- Boot ---------- */
+(function buildGuide(){
+  $('#jump').innerHTML=ROUTES.map(function(r){return '<a href="#'+r+'">'+NAMES[r]+'</a>'}).join('');
+  $('#restart').addEventListener('click',function(){var k={mp:S.mp};S=fresh();S.mp=k.mp;S.elo=150;S.size='1v1';S.mode='ai';go('menu');});
+})();
+setInterval(function(){
+  if(route()!=='battle'&&route()!=='strike')return;
+  if(S.phase!=='prep'||S.sheet)return;
+  if(S.prep>0){S.prep--;var el=$('#prepTimer');if(el)el.textContent=fmtTime(S.prep);
+    if(S.prep===10){var p=el&&el.parentNode;if(p)p.classList.add('warn');}
+    if(S.prep===0)toast('Time is up. In the full game your turn would end here.');}
+},1000);
+function fit(){
+  var stage=$('#stage'),phone=$('#phone');
+  if(window.innerWidth<700){stage.style.width='';stage.style.height='';phone.style.transform='';return;}
+  var availH=window.innerHeight-32,s=Math.min(1,availH/844);
+  stage.style.width=(390*s)+'px';stage.style.height=(844*s)+'px';phone.style.transform='scale('+s+')';
+}
+window.addEventListener('resize',fit);fit();
+window.addEventListener('hashchange',render);
+render();
+})();
+</script>
+
+</body></html>
